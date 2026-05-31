@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentimentAI | Business Intelligence Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav>
+        <a href="/index">Predictor</a>
+        <a href="/dashboard" class="active">BI Dashboard</a>
+        <a href="/dataset">Dataset</a>
+    </nav>
+
+    <div class="container dashboard-container">
+        <h1>Business Intelligence Insights</h1>
+        <p>Real-time analytics and performance metrics for the NLP Sentiment Analysis model (Trained on 1.6M rows).</p>
+
+        <div class="dashboard-grid">
+            <!-- Model Performance Comparison -->
+            <div class="dashboard-card" style="grid-column: span 2;">
+                <h3>Model Performance Comparison (NB vs Logistic Regression)</h3>
+                <div style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="modelComparisonChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Confusion Matrix Display -->
+            <div class="dashboard-card" style="grid-column: span 2;">
+                <h3>Confusion Matrix Analysis</h3>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: space-around;">
+                    <div style="flex: 1; min-width: 300px;">
+                        <h4 style="text-align: center; color: var(--text-secondary);">Naive Bayes</h4>
+                        <table style="width: 100%; border: 1px solid var(--border); text-align: center;">
+                            <tr><th style="background:var(--card-bg);">True \ Pred</th><th>Negative</th><th>Neutral</th><th>Positive</th></tr>
+                            <tr id="cm-nb-row0"><td style="font-weight:bold;">Negative</td><td>-</td><td>-</td><td>-</td></tr>
+                            <tr id="cm-nb-row1"><td style="font-weight:bold;">Neutral</td><td>-</td><td>-</td><td>-</td></tr>
+                            <tr id="cm-nb-row2"><td style="font-weight:bold;">Positive</td><td>-</td><td>-</td><td>-</td></tr>
+                        </table>
+                    </div>
+                    <div style="flex: 1; min-width: 300px;">
+                        <h4 style="text-align: center; color: var(--text-secondary);">Logistic Regression</h4>
+                        <table style="width: 100%; border: 1px solid var(--border); text-align: center;">
+                            <tr><th style="background:var(--card-bg);">True \ Pred</th><th>Negative</th><th>Neutral</th><th>Positive</th></tr>
+                            <tr id="cm-lr-row0"><td style="font-weight:bold;">Negative</td><td>-</td><td>-</td><td>-</td></tr>
+                            <tr id="cm-lr-row1"><td style="font-weight:bold;">Neutral</td><td>-</td><td>-</td><td>-</td></tr>
+                            <tr id="cm-lr-row2"><td style="font-weight:bold;">Positive</td><td>-</td><td>-</td><td>-</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sentiment Distribution Chart -->
+            <div class="dashboard-card">
+                <h3>Sentiment Distribution</h3>
+                <div style="position: relative; height: 230px; width: 100%; display: flex; justify-content: center;">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Sentiment Trends Chart -->
+            <div class="dashboard-card" style="grid-column: span 2;">
+                <h3>Sentiment Trends (12 Months Trailing)</h3>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Actionable Insights -->
+            <div class="dashboard-card" style="grid-column: span 2;">
+                <h3>Actionable Insights</h3>
+                <ul class="insights-list" id="insightsList">
+                    <li>Loading AI insights...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Fetch BI Data from API
+            fetch('/api/dashboard_data')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error("Error fetching data: ", data.error);
+                        return;
+                    }
+
+                    // Load Chart JS Globals
+                    Chart.defaults.color = '#a0a0a0';
+                    Chart.defaults.font.family = "'Inter', sans-serif";
+
+                    // 1. Model Comparison Chart
+                    if (data.metrics_comparison) {
+                        const compCtx = document.getElementById('modelComparisonChart').getContext('2d');
+                        const nbStats = [
+                            data.metrics_comparison['Naive Bayes'].accuracy,
+                            data.metrics_comparison['Naive Bayes'].precision,
+                            data.metrics_comparison['Naive Bayes'].recall,
+                            data.metrics_comparison['Naive Bayes'].f1_score
+                        ].map(v => (v * 100).toFixed(1));
+                        
+                        const lrStats = [
+                            data.metrics_comparison['Logistic Regression'].accuracy,
+                            data.metrics_comparison['Logistic Regression'].precision,
+                            data.metrics_comparison['Logistic Regression'].recall,
+                            data.metrics_comparison['Logistic Regression'].f1_score
+                        ].map(v => (v * 100).toFixed(1));
+
+                        new Chart(compCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+                                datasets: [
+                                    {
+                                        label: 'Naive Bayes',
+                                        data: nbStats,
+                                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                                        borderColor: '#3b82f6',
+                                        borderWidth: 1
+                                    },
+                                    {
+                                        label: 'Logistic Regression',
+                                        data: lrStats,
+                                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                                        borderColor: '#10b981',
+                                        borderWidth: 1
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        min: 60,
+                                        max: 100,
+                                        ticks: { callback: function(value) { return value + "%" } }
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Populate Confusion Matrices
+                        function populateCM(prefix, matrix) {
+                            for(let i=0; i<3; i++) {
+                                let tds = document.getElementById(`cm-${prefix}-row${i}`).getElementsByTagName('td');
+                                // td[0] is the label, so values are 1, 2, 3
+                                tds[1].innerText = matrix[i][0];
+                                tds[2].innerText = matrix[i][1];
+                                tds[3].innerText = matrix[i][2];
+                            }
+                        }
+                        populateCM('nb', data.metrics_comparison['Naive Bayes'].confusion_matrix);
+                        populateCM('lr', data.metrics_comparison['Logistic Regression'].confusion_matrix);
+                    }
+
+                    // 3. Distribution Chart
+                    const distCtx = document.getElementById('distributionChart').getContext('2d');
+                    new Chart(distCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(data.distribution),
+                            datasets: [{
+                                data: Object.values(data.distribution),
+                                backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                                borderColor: '#141414',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'right' }
+                            }
+                        }
+                    });
+
+                    // 4. Trends Chart
+                    const trendsCtx = document.getElementById('trendsChart').getContext('2d');
+                    new Chart(trendsCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.trends.labels,
+                            datasets: [
+                                {
+                                    label: 'Positive Mentions',
+                                    data: data.trends.Positive,
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Negative Mentions',
+                                    data: data.trends.Negative,
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                        }
+                    });
+
+                    // 5. Update Insights
+                    const insightsList = document.getElementById('insightsList');
+                    insightsList.innerHTML = '';
+                    data.insights.forEach(insight => {
+                        const li = document.createElement('li');
+                        li.textContent = insight;
+                        insightsList.appendChild(li);
+                    });
+                })
+                .catch(err => console.error("API Error: ", err));
+        });
+    </script>
+</body>
+</html>

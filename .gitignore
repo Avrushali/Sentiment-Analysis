@@ -1,0 +1,22 @@
+# Large Datasets
+Sentiment140.csv
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.env
+.venv
+
+# Vercel Deployment folder
+.vercel/
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentimentAI | Raw Dataset</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav>
+        <a href="/index">Predictor</a>
+        <a href="/dashboard">BI Dashboard</a>
+        <a href="/dataset" class="active">Dataset</a>
+    </nav>
+
+    <div class="container dashboard-container">
+        <h1>Model Evaluation vs Raw Data</h1>
+        <p>A random sample of recent tweets loaded directly from our Sentiment140 data warehouse, classified instantly.</p>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:50%">Text Data</th>
+                        <th>Actual Ground Truth</th>
+                        <th>Model Prediction</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sample in samples %}
+                    <tr>
+                        <td>{{ sample.tweet }}</td>
+                        <td class="sentiment-{{ sample.actual_sentiment.lower() }}">{{ sample.actual_sentiment }}</td>
+                        <td class="sentiment-{{ sample.predicted_sentiment.lower() }}">{{ sample.predicted_sentiment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
