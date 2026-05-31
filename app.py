@@ -20,13 +20,14 @@ except (nltk.downloader.DownloadError, LookupError):
 
 # --- Configuration ---
 app = Flask(__name__)
-MODEL_DIR = 'model'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, 'model')
 MODEL_PATH = os.path.join(MODEL_DIR, 'sentiment_model.pkl')
 MODEL_NB_PATH = os.path.join(MODEL_DIR, 'sentiment_nb_model.pkl')
 MODEL_LR_PATH = os.path.join(MODEL_DIR, 'sentiment_lr_model.pkl')
 VECTORIZER_PATH = os.path.join(MODEL_DIR, 'tfidf_vectorizer.pkl')
 METRICS_PATH = os.path.join(MODEL_DIR, 'metrics.json')
-DATA_PATH = 'Sentiment140.csv' if os.path.exists('Sentiment140.csv') else 'Sentiment140_sample.csv'
+DATA_PATH = os.path.join(BASE_DIR, 'Sentiment140.csv') if os.path.exists(os.path.join(BASE_DIR, 'Sentiment140.csv')) else os.path.join(BASE_DIR, 'Sentiment140_sample.csv')
 
 # --- Data Preprocessing Functions (consistent with train_model.py) ---
 stop_words = set(stopwords.words('english'))
@@ -55,28 +56,29 @@ mnb_classifier = None
 lr_classifier = None
 
 if os.path.exists(VECTORIZER_PATH):
-    print("Loading vectorizer...")
-    with open(VECTORIZER_PATH, 'rb') as f:
-        tfidf_vectorizer = pickle.load(f)
-    
-    # Try loading new NB model, fallback to original model name
-    nb_path_to_load = MODEL_NB_PATH if os.path.exists(MODEL_NB_PATH) else MODEL_PATH
-    if os.path.exists(nb_path_to_load):
-        print(f"Loading NB model from {nb_path_to_load}...")
-        with open(nb_path_to_load, 'rb') as f:
-            mnb_classifier = pickle.load(f)
-    
-    # Load LR model if it exists
-    if os.path.exists(MODEL_LR_PATH):
-        print("Loading LR model...")
-        with open(MODEL_LR_PATH, 'rb') as f:
-            lr_classifier = pickle.load(f)
-            
-    print("Models and vectorizer initialization complete.")
+    try:
+        print("Loading vectorizer...")
+        with open(VECTORIZER_PATH, 'rb') as f:
+            tfidf_vectorizer = pickle.load(f)
+        
+        # Try loading new NB model, fallback to original model name
+        nb_path_to_load = MODEL_NB_PATH if os.path.exists(MODEL_NB_PATH) else MODEL_PATH
+        if os.path.exists(nb_path_to_load):
+            print(f"Loading NB model from {nb_path_to_load}...")
+            with open(nb_path_to_load, 'rb') as f:
+                mnb_classifier = pickle.load(f)
+        
+        # Load LR model if it exists
+        if os.path.exists(MODEL_LR_PATH):
+            print("Loading LR model...")
+            with open(MODEL_LR_PATH, 'rb') as f:
+                lr_classifier = pickle.load(f)
+                
+        print("Models and vectorizer initialization complete.")
+    except Exception as e:
+        print(f"ERROR loading models: {str(e)}")
 else:
-    print("ERROR: Vectorizer not found. Please run 'python train_model.py' first to train the model.")
-    # Exit or handle this error appropriately
-    exit()
+    print("ERROR: Vectorizer not found. Please train models locally and push them.")
 
 # --- Flask Routes ---
 @app.route('/')
@@ -90,10 +92,13 @@ def index():
         
         if user_tweet:
             processed_tweet = preprocess_text(user_tweet)
-            tweet_tfidf = tfidf_vectorizer.transform([processed_tweet])
-            
-            # Select model
-            model_to_use = lr_classifier if (selected_model == 'lr' and lr_classifier is not None) else mnb_classifier
+            if tfidf_vectorizer is None:
+                prediction_text = "ERROR: Vectorizer model is not loaded on the server."
+            else:
+                tweet_tfidf = tfidf_vectorizer.transform([processed_tweet])
+                
+                # Select model
+                model_to_use = lr_classifier if (selected_model == 'lr' and lr_classifier is not None) else mnb_classifier
             
             if model_to_use is not None:
                 predicted_sentiment = model_to_use.predict(tweet_tfidf)[0]
@@ -118,6 +123,8 @@ def index():
 @app.route('/dataset')
 def dataset():
     try:
+        if tfidf_vectorizer is None or mnb_classifier is None:
+            return "ERROR: Models are not loaded on the server.", 500
         df = pd.read_csv(DATA_PATH, encoding='ISO-8859-1', header=None, nrows=50000)
         df.columns = ['target', 'id', 'date', 'flag', 'user', 'text']
         sentiment_map = {0: 'negative', 2: 'neutral', 4: 'positive'}
@@ -214,6 +221,8 @@ def api_predict():
     text = data['text']
     model_type = data.get('model', 'nb')
     
+    if tfidf_vectorizer is None:
+        return jsonify({'error': 'Vectorizer is not loaded on the server.'}), 500
     model_to_use = lr_classifier if (model_type == 'lr' and lr_classifier is not None) else mnb_classifier
     if model_to_use is None:
         return jsonify({'error': 'Selected model is not available.'}), 500
