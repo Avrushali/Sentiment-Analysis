@@ -15,7 +15,7 @@ import os
 nltk.data.path.append('/tmp')
 try:
     nltk.data.find('corpora/stopwords')
-except (nltk.downloader.DownloadError, LookupError):
+except LookupError:
     nltk.download('stopwords', download_dir='/tmp')
 
 # --- Configuration ---
